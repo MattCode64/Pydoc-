@@ -1,68 +1,64 @@
-# core/factory/entity_factory.py
+# systems/observer.py
+"""
+observer.py
 
-from typing import List, Dict, Union
-from entities.mobile import Mobile
-from entities.missile import Missile
-from entities.target import Target
-from systems.observer import EventManager
+Implémente un pattern Observer pour la gestion des événements
+dans le jeu (ex: destruction d'un Mobile, etc.).
+"""
+
+from abc import ABC, abstractmethod
+from typing import List, Any
 
 
-class EntityFactory:
+class ISubject(ABC):
     """
-    Factory pour créer des entités (Mobile, Missile, Target)
-    en fonction d'un plan de bataille (liste de dicts).
+    Interface ISubject : définit l'API pour attacher, détacher
+    et notifier les observateurs.
     """
 
-    MACH_SPEED = 1225.0  # km/h (approx.) => Vitesse du son approx.
+    @abstractmethod
+    def attach(self, observer: "IObserver") -> None:
+        pass
 
-    @classmethod
-    def create_entities(cls,
-                        battle_plan: List[Dict[str, Union[str, int, float, bool]]],  # <-- bool ajouté
-                        event_manager: EventManager = None
-                        ) -> List[Mobile]:
+    @abstractmethod
+    def detach(self, observer: "IObserver") -> None:
+        pass
+
+    @abstractmethod
+    def notify(self, event_type: str, data: Any) -> None:
+        pass
+
+
+class IObserver(ABC):
+    """
+    Interface IObserver : tout observateur doit implémenter update().
+    """
+
+    @abstractmethod
+    def update(self, event_type: str, data: Any) -> None:
+        pass
+
+
+class EventManager(ISubject):
+    """
+    EventManager centralise la distribution des événements
+    à une liste d'observateurs.
+    """
+
+    def __init__(self):
+        self._observers: List[IObserver] = []
+
+    def attach(self, observer: IObserver) -> None:
+        if observer not in self._observers:
+            self._observers.append(observer)
+
+    def detach(self, observer: IObserver) -> None:
+        if observer in self._observers:
+            self._observers.remove(observer)
+
+    def notify(self, event_type: str, data: Any) -> None:
         """
-        Crée une liste d'entités (Missile, Target) à partir
-        d'une liste de dictionnaires décrivant chaque entité.
+        Parcourt la liste d'observateurs et déclenche leur méthode update().
         """
-        entities = []
-
-        for entry in battle_plan:
-            entity_type = entry.get("type", "").lower()
-            x = entry.get("x", 0.0)
-            y = entry.get("y", 0.0)
-            angle = entry.get("angle", 0.0)
-            speed = entry.get("speed", None)
-            alive = entry.get("alive", True)  # <-- Par défaut True
-
-            if entity_type == "missile":
-                if speed is None:
-                    speed = 0.8 * cls.MACH_SPEED
-                pk = entry.get("pk", 0.9)
-                controller = entry.get("controller", None)
-                missile = Missile(
-                    x, y,
-                    angle=angle,
-                    speed=speed,
-                    PK=pk,
-                    controller=controller,
-                    event_manager=event_manager,
-                    alive=alive  # <-- Transmettre l'état vivant/mort
-                )
-                entities.append(missile)
-
-            elif entity_type == "target":
-                if speed is None:
-                    speed = 0.0
-                target = Target(
-                    x, y,
-                    angle=angle,
-                    speed=speed,
-                    event_manager=event_manager,
-                    alive=alive  # <-- Transmettre l'état vivant/mort
-                )
-                entities.append(target)
-
-            else:
-                raise ValueError(f"[EntityFactory] Type d'entité inconnu : {entity_type}")
-
-        return entities
+        for observer in self._observers:
+            observer.update(event_type, data)
