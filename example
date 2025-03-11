@@ -62,3 +62,121 @@ class EventManager(ISubject):
         """
         for observer in self._observers:
             observer.update(event_type, data)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+(------------------
+
+
+
+# systems/collision.py
+"""
+Système de collision global pour Project Bubble.
+
+Gère :
+- Les impacts missiles / cibles (avec PK).
+- Les collisions générales missile / mobile.
+"""
+
+from typing import List
+from entities.missile import Missile
+from entities.mobile import Mobile
+from entities.target import Target
+
+
+class CollisionSystem:
+    """
+    CollisionSystem détecte et gère les collisions entre entités (Mobiles).
+    """
+
+    def __init__(self, entities: List[Mobile], missile_collision: bool = True):
+        """
+        Initialise le système de collision.
+
+        Parameters
+        ----------
+        entities : List[Mobile]
+            Liste des entités vivantes (missiles, cibles, etc.).
+        missile_collision : bool
+            Activer ou désactiver les collisions missile/other_mobile.
+        """
+        self.entities = entities
+        self.missile_collision = missile_collision
+
+    def update(self):
+        """
+        Met à jour les collisions à chaque frame.
+        """
+        missiles = [e for e in self.entities if isinstance(e, Missile) and e.is_alive]
+        other_mobiles = [e for e in self.entities if isinstance(e, Mobile) and e.is_alive]
+
+        for missile in missiles:
+            for other in other_mobiles:
+                if other is missile:  # Ignorer soi-même
+                    continue
+
+                dist = self.distance(missile, other)
+                if dist <= 2000:  # portée d'impact générique
+                    self.handle_collision(missile, other, dist)
+
+    def handle_collision(self, missile: Missile, other: Mobile, distance: float):
+        """
+        Gère la collision/impact entre un missile et un autre mobile.
+
+        Parameters
+        ----------
+        missile : Missile
+            Le missile impliqué.
+        other : Mobile
+            L'autre mobile impliqué.
+        distance : float
+            Distance entre les deux.
+        """
+        if isinstance(other, Target):
+            # ✅ Cas cible : impact avec PK
+            print(f"[CollisionSystem] Impact missile/cible : {missile} -> {other} (distance={distance:.1f})")
+            from random import random
+            if random() < missile.PK:
+                print(f"[CollisionSystem] Cible {other} détruite (PK réussi)")
+                other.die()
+            else:
+                print(f"[CollisionSystem] Cible {other} a survécu (PK raté)")
+
+            missile.die()  # Le missile meurt après tentative d'impact
+
+        elif self.missile_collision:
+            # ✅ Cas collision avec autre mobile (missile_collision activé)
+            print(f"[CollisionSystem] Collision missile/mobile : {missile} <-> {other} (distance={distance:.1f})")
+            missile.die()
+            other.die()
+
+    @staticmethod
+    def distance(entity_a: Mobile, entity_b: Mobile) -> float:
+        """
+        Calcule la distance euclidienne entre deux entités.
+
+        Parameters
+        ----------
+        entity_a : Mobile
+        entity_b : Mobile
+
+        Returns
+        -------
+        float
+            Distance en mètres.
+        """
+        return ((entity_a.x - entity_b.x) ** 2 + (entity_a.y - entity_b.y) ** 2) ** 0.5
+
